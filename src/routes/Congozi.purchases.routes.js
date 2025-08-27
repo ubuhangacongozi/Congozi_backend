@@ -14,11 +14,7 @@ import {
 } from "../controllers/Congozi.purchases.controllers";
 import fileUpload from "../helper/multer";
 import {
-  admins,
-  students,
-  schools,
   normal,
-  supperAdmins,
 } from "../middleware/middleware";
 
 const purchaseRoute = express.Router();
@@ -42,9 +38,9 @@ purchaseRoute.post(
 
 // PUT route
 purchaseRoute.put("/:id", fileUpload.single("status"), updatedPurchase);
+purchaseRoute.put("/access/:accessCode", updateAccessCodePurchase);
 
 // DELETE route
-purchaseRoute.delete("/:paymentsId", supperAdmins, deleteUserPurchase);
-purchaseRoute.put("/access/:accessCode", updateAccessCodePurchase);
+purchaseRoute.delete("/:paymentsId", normal, deleteUserPurchase);
 
 export default purchaseRoute;

@@ -2,11 +2,11 @@ import express from "express";
 import {
   addResponses,
   getUserResponses,
-  deleteResponse
+  deleteResponse,
 } from "../controllers/Congozi.responses.controllers";
-import { normal, supperAdmins } from "../middleware/middleware";
+import { normal } from "../middleware/middleware";
 const responsesRoute = express.Router();
 responsesRoute.post("/add", normal, addResponses);
 responsesRoute.get("/user", normal, getUserResponses);
-responsesRoute.delete("/supper/{id}", supperAdmins, deleteResponse);
+responsesRoute.delete("/supper/:id", deleteResponse);
 export default responsesRoute;

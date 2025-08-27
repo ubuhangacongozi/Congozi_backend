@@ -5,7 +5,119 @@ import Options from "../models/Congozi.options.models";
 import ExpiredExams from "../models/Congozi.expiredexams.models";
 import PassedExams from "../models/Congozi.passedexams.models";
 import FailledExams from "../models/Congozi.failedexams.models";
+import payments from "../models/Congozi.payments.models";
+import TotalUserExams from "../models/Congozi.totaluserexams.models";
 
+export const getUserResponses = async (req, res) => {
+  try {
+    const userId = req.loggedInUser.id;
+    const userResponses = await responsesModel
+      .find({ userId })
+      .populate("examId")
+      .populate("responses.questionId")
+      .populate("responses.selectedOptionId")
+      .populate({
+        path: "correctOptionId",
+        model: "options",
+      });
+
+    if (!userResponses) {
+      return res.status(404).json({
+        status: "404",
+        message: "No responses found for the user",
+      });
+    }
+
+    const formattedResponses = await Promise.all(
+      userResponses.map(async (response) => {
+        const exam = await Exams.findById(response.examId).lean();
+        let totalPoints = 0;
+
+        const detailedResponses = await Promise.all(
+          response.responses.map(async (resp) => {
+            const question = await Questions.findById(resp.questionId).lean();
+            const selectedOption = await Options.findById(
+              resp.selectedOptionId
+            ).lean();
+
+            let optionMark = 0;
+            if (selectedOption && selectedOption.isCorrect === true) {
+              optionMark = 1;
+            }
+            totalPoints += optionMark;
+
+            return {
+              ...question,
+              selectedOption,
+            };
+          })
+        );
+        return {
+          ...exam,
+          totalPoints,
+          responses: detailedResponses,
+          submittedAt: response.submittedAt,
+          correctOptionId: response.correctOptionId,
+        };
+      })
+    );
+    return res.status(200).json({
+      status: "200",
+      message: "Your responses",
+      data: formattedResponses,
+    });
+  } catch (error) {
+    console.error("Error fetching user responses:", error.message);
+    return res.status(500).json({
+      status: "500",
+      message: "Failed to fetch user responses",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteResponse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isResponseExist = await responsesModel.findById(id);
+    if (!isResponseExist) {
+      return res.status(404).json({
+        status: "404",
+        message: "Response not found",
+      });
+    }
+    const examId = isResponseExist.examId;
+
+    const paymentToDelete = await payments.findOne({
+      itemId: examId,
+      status: "expired",
+    });
+
+    if (paymentToDelete) {
+      const paymentId = paymentToDelete._id;
+      await Promise.all([
+        PassedExams.deleteOne({ exam: examId }),
+        FailledExams.deleteOne({ exam: examId }),
+        ExpiredExams.deleteOne({ exam: examId }),
+        TotalUserExams.deleteOne({ purchaseId: paymentId }),
+        payments.deleteOne({ _id: paymentId }),
+      ]);
+    }
+    const deletedResponse = await responsesModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      status: "200",
+      message: "Response deleted",
+      data: deletedResponse,
+    });
+  } catch (error) {
+    console.error("Error deleting response:", error);
+    return res.status(500).json({
+      status: "500",
+      message: "Internal server error",
+    });
+  }
+};
 export const addResponses = async (req, res) => {
   try {
     const userId = req.loggedInUser.id;
@@ -83,87 +195,4 @@ export const addResponses = async (req, res) => {
   }
 };
 
-export const getUserResponses = async (req, res) => {
-  try {
-    const userId = req.loggedInUser.id;
-    const userResponses = await responsesModel
-      .find({ userId })
-      .populate("examId")
-      .populate("responses.questionId")
-      .populate("responses.selectedOptionId")
-      .populate({
-        path: "correctOptionId",
-        model: "options",
-      });
 
-    if (!userResponses) {
-      return res.status(404).json({
-        status: "404",
-        message: "No responses found for the user",
-      });
-    }
-
-    const formattedResponses = await Promise.all(
-      userResponses.map(async (response) => {
-        const exam = await Exams.findById(response.examId).lean();
-        let totalPoints = 0;
-
-        const detailedResponses = await Promise.all(
-          response.responses.map(async (resp) => {
-            const question = await Questions.findById(resp.questionId).lean();
-            const selectedOption = await Options.findById(
-              resp.selectedOptionId
-            ).lean();
-
-            let optionMark = 0;
-            if (selectedOption && selectedOption.isCorrect === true) {
-              optionMark = 1;
-            }
-            totalPoints += optionMark;
-
-            return {
-              ...question,
-              selectedOption,
-            };
-          })
-        );
-        return {
-          ...exam,
-          totalPoints,
-          responses: detailedResponses,
-          submittedAt: response.submittedAt,
-          correctOptionId: response.correctOptionId,
-        };
-      })
-    );
-    return res.status(200).json({
-      status: "200",
-      message: "Your responses",
-      data: formattedResponses,
-    });
-  } catch (error) {
-    console.error("Error fetching user responses:", error.message);
-    return res.status(500).json({
-      status: "500",
-      message: "Failed to fetch user responses",
-      error: error.message,
-    });
-  }
-};
-
-export const deleteResponse = async (req, res) => {
-  const { id } = req.params;
-  const isResponseExist = await responsesModel.findById(id);
-  if (!isResponseExist) {
-    return res.status(404).json({
-      status: "404",
-      message: "Response not found",
-    });
-  }
-  const deletedResponse = await responsesModel.findByIdAndDelete(id);
-  return res.status(200).json({
-    status: "200",
-    message: "Response deleted",
-    data: deletedResponse,
-  });
-};

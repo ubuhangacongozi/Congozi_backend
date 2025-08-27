@@ -1018,7 +1018,7 @@ const options = {
         },
       },
     },
-    "/api/v1/responses/supper{id}": {
+    "/api/v1/responses/supper/{id}": {
       delete: {
         tags: ["Responses"],
         summary: "Delete response",
