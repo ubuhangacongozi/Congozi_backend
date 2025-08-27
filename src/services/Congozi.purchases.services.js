@@ -74,7 +74,7 @@ export const updatepayments = async (id, purchaseData) => {
 export const getUserspayments = async (userId) => {
   try {
     const userpayments = await payments
-      .find({ paidBy: userId })
+      .find({ paidBy: userId, status: { $ne: "expired" } })
       .populate("paidBy")
       .populate("itemId")
       .sort({ createdAt: -1 });
