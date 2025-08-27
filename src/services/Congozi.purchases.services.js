@@ -157,6 +157,7 @@ export const getExamsByAccessCode = async (code, userId) => {
       .findOne({
         accessCode: code,
         paidBy: userId,
+        status: { $ne: "expired" },
       })
       .populate("paidBy")
       .populate("itemId");
